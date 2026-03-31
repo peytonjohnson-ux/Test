@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CDSS – Immunosuppressant Interaction Checker</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+      color: #fff;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.3px; }
+    header p  { font-size: .85rem; opacity: .8; margin-top: .25rem; }
+    .disclaimer {
+      background: #fff3cd;
+      border-left: 4px solid #f59e0b;
+      padding: .6rem 1rem;
+      font-size: .78rem;
+      color: #78350f;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    main {
+      max-width: 1100px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+    @media (max-width: 760px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    /* ── Card ────────────────────────────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.1);
+      padding: 1.5rem;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: .5rem;
+    }
+
+    /* ── Form ────────────────────────────────────────────────────────────── */
+    label {
+      display: block;
+      font-size: .8rem;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: .35rem;
+    }
+    select, input[type="text"] {
+      width: 100%;
+      padding: .55rem .75rem;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      font-size: .9rem;
+      background: #f7fafc;
+      transition: border-color .15s;
+    }
+    select:focus, input:focus {
+      outline: none;
+      border-color: #3182ce;
+      background: #fff;
+    }
+    .form-group { margin-bottom: 1rem; }
+
+    /* ── Tag input ────────────────────────────────────────────────────────── */
+    .tag-container {
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      padding: .4rem .5rem;
+      background: #f7fafc;
+      min-height: 42px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .35rem;
+      align-items: center;
+      cursor: text;
+    }
+    .tag-container:focus-within { border-color: #3182ce; background: #fff; }
+    .tag {
+      background: #ebf4ff;
+      color: #2b6cb0;
+      border: 1px solid #bee3f8;
+      border-radius: 4px;
+      padding: .15rem .5rem;
+      font-size: .8rem;
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+    }
+    .tag button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #2b6cb0;
+      font-size: .9rem;
+      line-height: 1;
+      padding: 0;
+    }
+    .tag button:hover { color: #e53e3e; }
+    #tag-input {
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: .85rem;
+      min-width: 120px;
+      flex: 1;
+      padding: .15rem .25rem;
+    }
+
+    /* ── Autocomplete dropdown ───────────────────────────────────────────── */
+    .autocomplete-wrapper { position: relative; }
+    .autocomplete-list {
+      position: absolute;
+      top: 100%;
+      left: 0; right: 0;
+      background: #fff;
+      border: 1px solid #bee3f8;
+      border-radius: 0 0 6px 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.12);
+      max-height: 180px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+    }
+    .autocomplete-list.open { display: block; }
+    .autocomplete-item {
+      padding: .45rem .75rem;
+      font-size: .85rem;
+      cursor: pointer;
+      text-transform: capitalize;
+    }
+    .autocomplete-item:hover, .autocomplete-item.active {
+      background: #ebf8ff;
+      color: #2b6cb0;
+    }
+
+    /* ── Submit button ───────────────────────────────────────────────────── */
+    .btn-check {
+      width: 100%;
+      padding: .7rem;
+      background: linear-gradient(135deg, #2b6cb0, #3182ce);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+      letter-spacing: .3px;
+    }
+    .btn-check:hover { opacity: .9; }
+    .btn-check:disabled { opacity: .5; cursor: default; }
+
+    /* ── Overall severity banner ─────────────────────────────────────────── */
+    #overall-banner {
+      border-radius: 8px;
+      padding: .9rem 1.2rem;
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 1rem;
+      display: none;
+      align-items: center;
+      gap: .75rem;
+    }
+    #overall-banner .banner-icon { font-size: 1.4rem; }
+
+    /* ── Results ─────────────────────────────────────────────────────────── */
+    #results-panel { display: none; }
+
+    .result-card {
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .75rem 1rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .result-header:hover { filter: brightness(.97); }
+    .drug-names { font-weight: 700; font-size: .95rem; text-transform: capitalize; }
+    .drug-names .vs { font-weight: 400; color: #718096; margin: 0 .3rem; font-size: .85rem; }
+    .badge-row { display: flex; align-items: center; gap: .5rem; }
+    .badge {
+      padding: .2rem .6rem;
+      border-radius: 20px;
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .chevron { font-size: .75rem; color: #a0aec0; transition: transform .2s; }
+    .chevron.open { transform: rotate(180deg); }
+
+    .result-body {
+      padding: 1rem 1.1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: .875rem;
+      display: none;
+    }
+    .result-body.open { display: block; }
+
+    .detail-section { margin-bottom: .85rem; }
+    .detail-section:last-child { margin-bottom: 0; }
+    .detail-label {
+      font-weight: 600;
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: #718096;
+      margin-bottom: .25rem;
+    }
+    .detail-text { color: #2d3748; line-height: 1.55; }
+
+    ul.detail-list {
+      list-style: none;
+      padding: 0;
+    }
+    ul.detail-list li {
+      padding: .2rem 0 .2rem .9rem;
+      position: relative;
+      color: #2d3748;
+    }
+    ul.detail-list li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: #a0aec0;
+    }
+
+    .match-badge {
+      font-size: .68rem;
+      color: #718096;
+      font-style: italic;
+      margin-top: .3rem;
+    }
+
+    /* ── Severity colour tokens ──────────────────────────────────────────── */
+    .severity-contraindicated { background:#fed7d7; color:#742a2a; border-color:#fc8181; }
+    .severity-major           { background:#feebcb; color:#7b341e; border-color:#f6ad55; }
+    .severity-moderate        { background:#fefcbf; color:#744210; border-color:#f6e05e; }
+    .severity-minor           { background:#c6f6d5; color:#22543d; border-color:#68d391; }
+    .severity-none            { background:#e2e8f0; color:#4a5568; border-color:#cbd5e0; }
+
+    /* Banner backgrounds */
+    .banner-contraindicated { background:#fed7d7; color:#742a2a; border:2px solid #fc8181; }
+    .banner-major           { background:#feebcb; color:#7b341e; border:2px solid #f6ad55; }
+    .banner-moderate        { background:#fefcbf; color:#744210; border:2px solid #f6e05e; }
+    .banner-minor           { background:#c6f6d5; color:#22543d; border:2px solid #68d391; }
+    .banner-none            { background:#e2e8f0; color:#4a5568; border:2px solid #cbd5e0; }
+
+    /* Confidence */
+    .confidence-high   { background:#c6f6d5; color:#22543d; }
+    .confidence-medium { background:#fefcbf; color:#744210; }
+    .confidence-low    { background:#e2e8f0; color:#4a5568; }
+
+    /* ── Loading spinner ─────────────────────────────────────────────────── */
+    .spinner {
+      display: none;
+      width: 22px; height: 22px;
+      border: 3px solid #bee3f8;
+      border-top-color: #3182ce;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Empty / error states ────────────────────────────────────────────── */
+    .state-msg {
+      text-align: center;
+      padding: 2rem;
+      color: #a0aec0;
+      font-size: .9rem;
+    }
+    .error-msg {
+      background: #fff5f5;
+      border: 1px solid #fc8181;
+      border-radius: 6px;
+      padding: .75rem 1rem;
+      color: #c53030;
+      font-size: .85rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    /* ── Population pills ────────────────────────────────────────────────── */
+    .pop-pill {
+      display: inline-block;
+      background: #ebf4ff;
+      color: #2b6cb0;
+      border: 1px solid #bee3f8;
+      border-radius: 20px;
+      padding: .1rem .5rem;
+      font-size: .72rem;
+      margin: .1rem .15rem 0 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Clinical Decision Support System</h1>
+  <p>Immunosuppressant Drug Interaction Checker &mdash; Biologics &amp; mAbs</p>
+</header>
+<div class="disclaimer">
+  &#9888;&nbsp;<strong>For clinical decision support only.</strong>
+  Always verify with current prescribing information and consult a clinical pharmacist or physician before making prescribing decisions.
+</div>
+
+<main>
+
+  <!-- ── Left panel: input form ─────────────────────────────────────────── -->
+  <aside>
+    <div class="card">
+      <h2>Drug Combination Check</h2>
+
+      <div class="form-group">
+        <label for="is-select">Immunosuppressant / Biologic</label>
+        <select id="is-select">
+          <option value="">— select —</option>
+          {% for drug in immunosuppressants %}
+          <option value="{{ drug }}" style="text-transform:capitalize">{{ drug | capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Co-therapies <span style="font-weight:400;color:#a0aec0">(type or select)</span></label>
+        <div class="autocomplete-wrapper">
+          <div class="tag-container" id="tag-container">
+            <input type="text" id="tag-input" placeholder="Add a drug…" autocomplete="off" />
+          </div>
+          <div class="autocomplete-list" id="autocomplete-list"></div>
+        </div>
+      </div>
+
+      <div class="error-msg" id="form-error"></div>
+
+      <button class="btn-check" id="check-btn" onclick="runCheck()">
+        Check Interactions
+      </button>
+    </div>
+
+    <!-- Quick reference legend -->
+    <div class="card" style="margin-top:1rem">
+      <h2>Severity Legend</h2>
+      <div style="font-size:.82rem;line-height:2">
+        <span class="badge severity-contraindicated">Contraindicated</span> &nbsp;Avoid combination<br>
+        <span class="badge severity-major">Major</span> &nbsp;High risk – dose modify or switch<br>
+        <span class="badge severity-moderate">Moderate</span> &nbsp;Use with caution &amp; monitoring<br>
+        <span class="badge severity-minor">Minor</span> &nbsp;Low risk – standard monitoring<br>
+        <span class="badge severity-none">None</span> &nbsp;No known interaction
+      </div>
+      <div style="font-size:.82rem;margin-top:.85rem;line-height:2">
+        <strong>Evidence confidence</strong><br>
+        <span class="badge confidence-high">High</span> &nbsp;RCT / FDA label / meta-analysis<br>
+        <span class="badge confidence-medium">Medium</span> &nbsp;PK studies / case series<br>
+        <span class="badge confidence-low">Low</span> &nbsp;Theoretical / case reports
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Right panel: results ───────────────────────────────────────────── -->
+  <section>
+    <div class="spinner" id="spinner"></div>
+    <div class="state-msg" id="empty-state">
+      Enter a biologic and one or more co-therapies to screen for interactions.
+    </div>
+
+    <div id="overall-banner"></div>
+    <div id="results-panel"></div>
+  </section>
+
+</main>
+
+<script>
+  // ── Drug lists (injected by Flask) ─────────────────────────────────────────
+  const ALL_CO_THERAPIES = {{ co_therapies | tojson }};
+  const selectedTags = new Set();
+
+  // ── Tag / autocomplete input ───────────────────────────────────────────────
+  const tagContainer = document.getElementById("tag-container");
+  const tagInput     = document.getElementById("tag-input");
+  const acList       = document.getElementById("autocomplete-list");
+
+  tagContainer.addEventListener("click", () => tagInput.focus());
+
+  tagInput.addEventListener("input", () => {
+    const q = tagInput.value.trim().toLowerCase();
+    if (!q) { acList.classList.remove("open"); return; }
+    const matches = ALL_CO_THERAPIES.filter(d =>
+      d.toLowerCase().includes(q) && !selectedTags.has(d)
+    ).slice(0, 8);
+    renderDropdown(matches);
+  });
+
+  tagInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const active = acList.querySelector(".active");
+      if (active) addTag(active.dataset.value);
+      else if (tagInput.value.trim()) addTag(tagInput.value.trim());
+    }
+    if (e.key === "Backspace" && !tagInput.value) {
+      const tags = tagContainer.querySelectorAll(".tag");
+      if (tags.length) removeTag(tags[tags.length - 1].dataset.value);
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const items = [...acList.querySelectorAll(".autocomplete-item")];
+      const cur   = acList.querySelector(".active");
+      let idx = cur ? items.indexOf(cur) : -1;
+      if (cur) cur.classList.remove("active");
+      idx = e.key === "ArrowDown"
+        ? Math.min(idx + 1, items.length - 1)
+        : Math.max(idx - 1, 0);
+      items[idx]?.classList.add("active");
+      e.preventDefault();
+    }
+    if (e.key === "Escape") acList.classList.remove("open");
+  });
+
+  document.addEventListener("click", e => {
+    if (!tagContainer.contains(e.target) && !acList.contains(e.target))
+      acList.classList.remove("open");
+  });
+
+  function renderDropdown(items) {
+    acList.innerHTML = "";
+    if (!items.length) { acList.classList.remove("open"); return; }
+    items.forEach(d => {
+      const el = document.createElement("div");
+      el.className    = "autocomplete-item";
+      el.textContent  = capitalise(d);
+      el.dataset.value = d;
+      el.addEventListener("mousedown", ev => { ev.preventDefault(); addTag(d); });
+      acList.appendChild(el);
+    });
+    acList.classList.add("open");
+  }
+
+  function addTag(value) {
+    const canon = value.trim().toLowerCase();
+    if (!canon || selectedTags.has(canon)) { tagInput.value = ""; acList.classList.remove("open"); return; }
+    selectedTags.add(canon);
+    const tag = document.createElement("div");
+    tag.className      = "tag";
+    tag.dataset.value  = canon;
+    tag.innerHTML = `${capitalise(canon)} <button type="button" onclick="removeTag('${canon}')">×</button>`;
+    tagContainer.insertBefore(tag, tagInput);
+    tagInput.value = "";
+    acList.classList.remove("open");
+  }
+
+  function removeTag(value) {
+    selectedTags.delete(value);
+    const el = tagContainer.querySelector(`.tag[data-value="${value}"]`);
+    if (el) el.remove();
+  }
+
+  function capitalise(s) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  // ── Main check ─────────────────────────────────────────────────────────────
+  async function runCheck() {
+    const is    = document.getElementById("is-select").value;
+    const drugs = [...selectedTags];
+    const errEl = document.getElementById("form-error");
+
+    errEl.style.display = "none";
+    if (!is)     { showError("Please select an immunosuppressant."); return; }
+    if (!drugs.length) { showError("Please add at least one co-therapy drug."); return; }
+
+    setLoading(true);
+    try {
+      const resp = await fetch("/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ immunosuppressant: is, co_therapies: drugs }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) { showError(data.error || "Server error."); return; }
+      renderResults(data);
+    } catch (e) {
+      showError("Network error – could not reach server.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById("form-error");
+    el.textContent   = msg;
+    el.style.display = "block";
+  }
+
+  function setLoading(on) {
+    document.getElementById("spinner").style.display    = on ? "block" : "none";
+    document.getElementById("empty-state").style.display = on ? "none" : (document.getElementById("results-panel").style.display === "none" ? "block" : "none");
+    document.getElementById("check-btn").disabled = on;
+  }
+
+  // ── Render results ──────────────────────────────────────────────────────────
+  const SEVERITY_ICON = {
+    "Contraindicated": "🚫",
+    "Major":           "🔴",
+    "Moderate":        "🟡",
+    "Minor":           "🟢",
+    "None":            "✅",
+  };
+
+  function renderResults(data) {
+    document.getElementById("empty-state").style.display = "none";
+
+    // Overall banner
+    const banner = document.getElementById("overall-banner");
+    const ov     = data.overall_severity;
+    const bannerCls = "banner-" + ov.toLowerCase();
+    banner.className         = bannerCls;
+    banner.style.display     = "flex";
+    banner.innerHTML = `
+      <span class="banner-icon">${SEVERITY_ICON[ov] || ""}</span>
+      <span>Overall highest severity: <strong>${ov}</strong>
+        &mdash; ${data.results.length} interaction${data.results.length !== 1 ? "s" : ""} found
+        for <strong style="text-transform:capitalize">${data.immunosuppressant}</strong>
+      </span>`;
+
+    // Result cards
+    const panel = document.getElementById("results-panel");
+    panel.style.display = "block";
+    panel.innerHTML = "";
+
+    data.results.forEach((r, i) => {
+      const card = document.createElement("div");
+      card.className = "result-card";
+
+      const popPills = (r.populations || [])
+        .map(p => `<span class="pop-pill">${p}</span>`).join(" ");
+
+      const monList = (r.monitoring || []).length
+        ? `<ul class="detail-list">${r.monitoring.map(m => `<li>${m}</li>`).join("")}</ul>`
+        : '<span style="color:#a0aec0">None specified</span>';
+
+      const altList = (r.alternatives || []).length
+        ? `<ul class="detail-list">${r.alternatives.map(a => `<li>${a}</li>`).join("")}</ul>`
+        : '<span style="color:#a0aec0">No alternatives listed</span>';
+
+      const refList = (r.references || []).length
+        ? `<ul class="detail-list">${r.references.map(ref => `<li>${ref}</li>`).join("")}</ul>`
+        : "";
+
+      const matchNote = r.match_type === "class-level"
+        ? '<div class="match-badge">&#8505; Class-level rule applied – exact pair not in database</div>'
+        : "";
+
+      card.innerHTML = `
+        <div class="result-header ${r.severity_css}" onclick="toggleCard(this)" style="background: inherit">
+          <div>
+            <div class="drug-names">
+              <span style="text-transform:capitalize">${r.immunosuppressant}</span>
+              <span class="vs">+</span>
+              <span style="text-transform:capitalize">${r.co_therapy}</span>
+            </div>
+            ${popPills ? `<div style="margin-top:.3rem">${popPills}</div>` : ""}
+          </div>
+          <div class="badge-row">
+            <span class="badge ${r.severity_css}">${r.severity}</span>
+            <span class="badge ${r.confidence_css}">Evidence: ${r.confidence}</span>
+            <span class="chevron">&#9660;</span>
+          </div>
+        </div>
+        <div class="result-body">
+          <div class="detail-section">
+            <div class="detail-label">&#9888; Clinical Alert</div>
+            <div class="detail-text" style="font-weight:600;color:#c53030">${r.alert}</div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-label">Mechanism</div>
+            <div class="detail-text">${r.mechanism}</div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-label">Monitoring Parameters</div>
+            ${monList}
+          </div>
+          <div class="detail-section">
+            <div class="detail-label">Safer Alternatives</div>
+            ${altList}
+          </div>
+          ${refList ? `<div class="detail-section"><div class="detail-label">References</div>${refList}</div>` : ""}
+          ${matchNote}
+        </div>`;
+      panel.appendChild(card);
+
+      // Auto-expand if severity is Major or Contraindicated
+      if (r.severity_rank >= 3) {
+        card.querySelector(".result-body").classList.add("open");
+        card.querySelector(".chevron").classList.add("open");
+      }
+    });
+  }
+
+  function toggleCard(header) {
+    const body    = header.nextElementSibling;
+    const chevron = header.querySelector(".chevron");
+    body.classList.toggle("open");
+    chevron.classList.toggle("open");
+  }
+</script>
+</body>
+</html>
